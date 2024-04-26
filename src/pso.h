@@ -10,10 +10,15 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
     }
 }
 
-struct PositionValue
+struct xyPair
 {
     double x;
     double y;
+};
+
+struct PositionValue
+{
+    xyPair pos;
     double val;
 };
 

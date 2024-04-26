@@ -4,8 +4,6 @@
 #include <random>
 #include <ctime>
 
-#define X 0
-#define Y 1
 #define FN_TO_OPTIMIZE(x, y) holderTable(x, y)
 
  __device__ double function(double x, double y)
@@ -39,36 +37,35 @@ __global__ void particle(PositionValue *result, int iterations, double velW, dou
 {
     __shared__ PositionValue globalBest;
     __shared__ int curIteration;
-    __shared__ double s_low[2];
-    __shared__ double s_upp[2];
+    __shared__ xyPair s_low;
+    __shared__ xyPair s_upp;
 
     int idx = blockDim.x*blockIdx.x + threadIdx.x;
     curand_init(seedVal, idx, 0, &state[idx]);
     
     if(threadIdx.x == 0)
     {
-        double interval[2] = {(upper - lower)/numXS, (upper - lower)/numYS};
-        s_upp[X] = upper - interval[X]*(numXS - 1 - blockIdx.x);
-        s_low[X] = lower + interval[X]*blockIdx.x;
-        s_upp[Y] = upper - interval[Y]*(numYS - 1 - blockIdx.y);
-        s_low[Y] = lower + interval[Y]*blockIdx.y;
+        xyPair interval = {(upper - lower)/numXS, (upper - lower)/numYS};
+        s_upp.x = upper - interval.x * (numXS - 1 - blockIdx.x);
+        s_low.x = lower + interval.x * blockIdx.x;
+        s_upp.y = upper - interval.y * (numYS - 1 - blockIdx.y);
+        s_low.y = lower + interval.y * blockIdx.y;
         curIteration = 0;
-        globalBest = {cu_urand(s_low[X], s_upp[X], state + idx),
-                      cu_urand(s_low[Y], s_upp[Y], state + idx),
+        globalBest = {cu_urand(s_low.x, s_upp.x, state + idx),
+                      cu_urand(s_low.y, s_upp.y, state + idx),
                       0};
-        globalBest.val = FN_TO_OPTIMIZE(globalBest.x, globalBest.y);
+        globalBest.val = FN_TO_OPTIMIZE(globalBest.pos.x, globalBest.pos.y);
     }
     __syncthreads();
 
-    PositionValue curr = {cu_urand(s_low[X], s_upp[X], state + idx),
-                          cu_urand(s_low[Y], s_upp[Y], state + idx),
+    PositionValue curr = {cu_urand(s_low.x, s_upp.x, state + idx),
+                          cu_urand(s_low.y, s_upp.y, state + idx),
                           0};
-    curr.val = FN_TO_OPTIMIZE(curr.x, curr.y);
+    curr.val = FN_TO_OPTIMIZE(curr.pos.x, curr.pos.y);
     
     PositionValue localBest = curr;
 
-    double velocityX = cu_urand(0, 2, state + idx);
-    double velocityY = cu_urand(0, 2, state + idx);
+    xyPair velocity = {cu_urand(0, 2, state + idx), cu_urand(0, 2, state + idx)};
 
     while(curIteration < iterations)
     {
@@ -82,25 +79,28 @@ __global__ void particle(PositionValue *result, int iterations, double velW, dou
         }
         __syncthreads();
 
-        velocityX = velW * velocityX + cogAccel * cu_urand(0, 1, state + idx) * (localBest.x - curr.x) + socAccel * cu_urand(0, 1, state + idx) * (globalBest.x - curr.x);
-        velocityY = velW * velocityY + cogAccel * cu_urand(0, 1, state + idx) * (localBest.y - curr.y) + socAccel * cu_urand(0, 1, state + idx) * (globalBest.y - curr.y);
+        velocity.x = velW * velocity.x + cogAccel * cu_urand(0, 1, state + idx) * (localBest.x - curr.x) + socAccel * cu_urand(0, 1, state + idx) * (globalBest.x - curr.x);
+        velocity.y = velW * velocity.y + cogAccel * cu_urand(0, 1, state + idx) * (localBest.y - curr.y) + socAccel * cu_urand(0, 1, state + idx) * (globalBest.y - curr.y);
 
-        curr.x += velocityX;
-        curr.y += velocityY;
+        curr.pos.x += velocity.x;
+        curr.pos.y += velocity.y;
 
-        if(curr.x < s_low[X])
-            curr.x = s_low[X];
-        else if(curr.x > s_upp[X])
-            curr.x = s_upp[X];
+        if(curr.pos.x < s_low.x)
+            curr.pos.x = s_low.x;
+        else if(curr.pos.x > s_upp.x)
+            curr.pos.x = s_upp.x;
 
-        if(curr.y < s_low[Y])
-            curr.y = s_low[Y];
-        else if(curr.y > s_upp[Y])
-            curr.y = s_upp[Y];
+        if(curr.pos.y < s_low.y)
+            curr.pos.y = s_low.y;
+        else if(curr.pos.y > s_upp.y)
+            curr.pos.y = s_upp.y;
 
-        curr.val = FN_TO_OPTIMIZE(curr.x, curr.y);
+        curr.val = FN_TO_OPTIMIZE(curr.pos.x, curr.pos.y);
 
-        curIteration++;
+        if(threadIdx.x == 0)
+        {
+            curIteration++;
+        }
     }
 
     __syncthreads();

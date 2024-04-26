@@ -3,7 +3,7 @@
 
 #include "pso.h"
 
-#define NUM_SWARMS_X 1
+#define NUM_SWARMS_X 2
 #define NUM_SWARMS_Y 1
 #define NUM_PARTICLES 1024
 #define ITERATIONS 2
@@ -25,7 +25,7 @@ int main(int argc, char **argv)
     for(int i = 0; i < NUM_SWARMS; i++)
     {
         printf("Swarm %d found their minimum value of %lf at (%lf, %lf)\n",
-                i, result[i].val, result[i].x, result[i].y);
+                i, result[i].val, result[i].pos.x, result[i].pos.y);
     }
 
     free(result); 
