@@ -4,7 +4,7 @@
 #include <random>
 #include <ctime>
 
-#define FN_TO_OPTIMIZE(x, y) holderTable(x, y)
+#define FN_TO_OPTIMIZE(x, y) sixHumpCamelFunction(x, y)
 
  __device__ double function(double x, double y)
 {
@@ -32,16 +32,17 @@ __device__ double cu_urand(double lowerBound, double upperBound, curandState_t *
     return lowerBound + (upperBound - lowerBound) * curand_uniform_double(state);
 }
 
-__global__ void particle(PositionValue *result, int iterations, double velW, double cogAccel, double socAccel,
-                         int numXS, int numYS, double lower, double upper, curandState_t *state, time_t seedVal)
+__global__ void particle(PositionValue *results, int iterations, double velW,
+                         double cogAccel, double socAccel, int numXS, int numYS,
+                         double lower, double upper, curandState_t *state, time_t seedVal)
 {
     __shared__ PositionValue globalBest;
     __shared__ int curIteration;
     __shared__ xyPair s_low;
     __shared__ xyPair s_upp;
 
-    int idx = blockDim.x*blockIdx.x + threadIdx.x;
-    curand_init(seedVal, idx, 0, &state[idx]);
+    int id = blockIdx.y * gridDim.x + blockIdx.x + threadIdx.x;
+    curand_init(seedVal, id, 0, &state[id]);
     
     if(threadIdx.x == 0)
     {
@@ -51,21 +52,22 @@ __global__ void particle(PositionValue *result, int iterations, double velW, dou
         s_upp.y = upper - interval.y * (numYS - 1 - blockIdx.y);
         s_low.y = lower + interval.y * blockIdx.y;
         curIteration = 0;
-        globalBest = {cu_urand(s_low.x, s_upp.x, state + idx),
-                      cu_urand(s_low.y, s_upp.y, state + idx),
+        globalBest = {cu_urand(s_low.x, s_upp.x, state + id),
+                      cu_urand(s_low.y, s_upp.y, state + id),
                       0};
         globalBest.val = FN_TO_OPTIMIZE(globalBest.pos.x, globalBest.pos.y);
     }
+
     __syncthreads();
 
-    PositionValue curr = {cu_urand(s_low.x, s_upp.x, state + idx),
-                          cu_urand(s_low.y, s_upp.y, state + idx),
+    PositionValue curr = {cu_urand(s_low.x, s_upp.x, state + id),
+                          cu_urand(s_low.y, s_upp.y, state + id),
                           0};
     curr.val = FN_TO_OPTIMIZE(curr.pos.x, curr.pos.y);
     
     PositionValue localBest = curr;
 
-    xyPair velocity = {cu_urand(0, 2, state + idx), cu_urand(0, 2, state + idx)};
+    xyPair velocity = {cu_urand(0, 2, state + id), cu_urand(0, 2, state + id)};
 
     while(curIteration < iterations)
     {
@@ -79,9 +81,8 @@ __global__ void particle(PositionValue *result, int iterations, double velW, dou
         }
         __syncthreads();
 
-        velocity.x = velW * velocity.x + cogAccel * cu_urand(0, 1, state + idx) * (localBest.x - curr.x) + socAccel * cu_urand(0, 1, state + idx) * (globalBest.x - curr.x);
-        velocity.y = velW * velocity.y + cogAccel * cu_urand(0, 1, state + idx) * (localBest.y - curr.y) + socAccel * cu_urand(0, 1, state + idx) * (globalBest.y - curr.y);
-
+        velocity.x = velW * velocity.x + cogAccel * cu_urand(0, 1, state + id) * (localBest.pos.x - curr.pos.x) + socAccel * cu_urand(0, 1, state + id) * (globalBest.pos.x - curr.pos.x);
+        velocity.y = velW * velocity.y + cogAccel * cu_urand(0, 1, state + id) * (localBest.pos.y - curr.pos.y) + socAccel * cu_urand(0, 1, state + id) * (globalBest.pos.y - curr.pos.y);
         curr.pos.x += velocity.x;
         curr.pos.y += velocity.y;
 
@@ -106,22 +107,27 @@ __global__ void particle(PositionValue *result, int iterations, double velW, dou
     __syncthreads();
     if(threadIdx.x == 0)
     {
-        result[0] = globalBest;
+        results[id] = globalBest;
+        printf("r: %f %f ~ %f\n", results[id].pos.x, results[id].pos.y, results[id].val);
     }
+    __syncthreads();
 }
 
-void multiSwarmOptimizer(PositionValue *result, unsigned int numXS, unsigned int numYS,
+void multiSwarmOptimizer(PositionValue *results, unsigned int numXS, unsigned int numYS,
                          int numP, int iterations, double velW, double cogAccel, double socAccel,
                          double lower, double upper)
 {
     PositionValue *device_results;
     curandState_t *device_state;
+    
     gpuErrchk( cudaMalloc(&device_state, sizeof(curandState_t)) );
     gpuErrchk( cudaMalloc(&device_results, sizeof(PositionValue) * numXS * numYS) );
+    
+    particle<<<{numXS, numYS}, numP>>>(device_results, iterations, velW, cogAccel, socAccel,
+                                       numXS, numYS, lower, upper, device_state, time(0));
 
-    particle<<<{numXS, numYS}, numP>>>(device_results, iterations, velW, cogAccel, socAccel, numXS, numYS, lower, upper, device_state, time(0));
-
-    gpuErrchk( cudaMemcpy(result, device_results, sizeof(PositionValue) * numXS * numYS, cudaMemcpyDeviceToHost) );
+    gpuErrchk( cudaDeviceSynchronize() ); 
+    gpuErrchk( cudaMemcpy(results, device_results, sizeof(PositionValue) * numXS * numYS, cudaMemcpyDeviceToHost) );
 
     gpuErrchk( cudaFree(device_results) );
     gpuErrchk( cudaFree(device_state) );
