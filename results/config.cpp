@@ -3,10 +3,10 @@
 
 #include "pso.h"
 
-#define NUM_SWARMS_X 2
-#define NUM_SWARMS_Y 2
-#define NUM_PARTICLES 4
-#define ITERATIONS 20
+#define NUM_SWARMS_X 1
+#define NUM_SWARMS_Y 1
+#define NUM_PARTICLES 1024
+#define ITERATIONS 100
 #define VEL_WEIGHT 0.7
 #define COG_ACCEL  2
 #define SOC_ACCEL  2

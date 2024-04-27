@@ -4,7 +4,7 @@
 #include <random>
 #include <ctime>
 
-#define FN_TO_OPTIMIZE(x, y) sixHumpCamelFunction(x, y)
+#define FN_TO_OPTIMIZE(x, y) holderTable(x, y)
 
  __device__ double function(double x, double y)
 {
@@ -24,6 +24,11 @@ __device__ double holderTable(double x, double y)
 __device__ double sixHumpCamelFunction(double x, double y)
 {
     return (4.0 - 2.1*x*x + pow(x, 4)/3.0)*x*x + x*y + (-4 + 4*y*y)*y*y;
+}
+
+__device__ double ackleyFunction(double x, double y)
+{
+    return -20.0 * exp( -0.2 * sqrt( (1.0/2.0) * (x*x + y*y) ) ) - exp( (1.0/2.0) * (cos(2*M_PI*x) + cos(2*M_PI*y)) ) + 20.0 + exp(1.0);
 }
 
 // Uniform random function that uses cuda_uniform_double and returns a value between a range
@@ -108,7 +113,6 @@ __global__ void particle(PositionValue *results, int iterations, double velW,
     if(threadIdx.x == 0)
     {
         results[id] = globalBest;
-        printf("r: %f %f ~ %f\n", results[id].pos.x, results[id].pos.y, results[id].val);
     }
     __syncthreads();
 }
