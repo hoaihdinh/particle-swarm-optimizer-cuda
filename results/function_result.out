@@ -1,5 +1,2 @@
-g++ -std=c++11 -I /home/hxd4815/particle-swarm-optimizer-cuda/lib/libgputk -c src/main.cpp -o build/main.o
-nvcc -I /home/hxd4815/particle-swarm-optimizer-cuda/lib/libgputk -lineinfo -c src/pso.cu -o build/src/pso.cu.o
-nvcc -I /home/hxd4815/particle-swarm-optimizer-cuda/lib/libgputk -o build/main build/main.o build/src/pso.cu.o -lm -L /home/hxd4815/particle-swarm-optimizer-cuda/lib/libgputk/lib -lgputk
 100 iterations, 1 swarm(s), 1024 particles per swarm
 Swarm 0 found their minimum value of -1.808352 at (3.185162, 3.129803)
