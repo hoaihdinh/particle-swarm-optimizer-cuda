@@ -10,15 +10,21 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort =
     }
 }
 
-struct PositionValue
+struct xyPair
 {
     double x;
     double y;
+};
+
+struct PositionValue
+{
+    xyPair pos;
     double val;
 };
 
 // result - the output of the particle swarm optimizer
-// numS - number of swarms
+// numXS - number of swarms in X direction
+// numYS - number of swarms in Y direction
 // numP - number of particles
 // iterations - number of iterations to simulate
 // velW - the weight of the current velocity
@@ -26,5 +32,6 @@ struct PositionValue
 // socAccel - social acceleration constant
 // lower - the lower bound of the function
 // upper - the upper bound of the function
-void multiSwarmOptimizer(PositionValue *result, int numS, int numP, int iterations, double velW,
+void multiSwarmOptimizer(PositionValue *result, unsigned int numXS, unsigned int numYS,
+                         int numP, int iterations, double velW,
                          double cogAccel, double socAccel, double lower, double upper);
