@@ -1,0 +1,10 @@
+#define NUM_SWARMS_X 2
+#define NUM_SWARMS_Y 2
+#define NUM_PARTICLES 4
+#define ITERATIONS 20
+#define VEL_WEIGHT 0.7
+#define COG_ACCEL  2
+#define SOC_ACCEL  2
+#define LOWER -10
+#define UPPER  10
+#define NUM_SWARMS (NUM_SWARMS_X*NUM_SWARMS_Y)
